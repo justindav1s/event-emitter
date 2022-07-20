@@ -1,0 +1,10 @@
+name: event-emitter
+
+image:
+  registry: quay.io
+  repository: justindav1s
+  name: event-emitter
+  version: 2.1.0
+service_mesh_enabled: false
+config:
+  loglevel: INFO

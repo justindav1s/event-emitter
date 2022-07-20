@@ -1,0 +1,94 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ .Values.name }}
+  labels:
+      app: {{ .Values.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      name: {{ .Values.name }}
+      labels:
+        app: {{ .Values.name }}
+      annotations:
+        prometheus.io/path: /q/metrics
+        prometheus.io/port: '8080'
+        prometheus.io/scrape: 'true'        
+        sidecar.istio.io/inject: '{{ .Values.service_mesh_enabled }}'
+    spec:
+      containers:
+        - resources:
+            limits:
+              cpu: '400m'
+              memory: 1Gi
+            requests:
+              cpu: '200m'
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePath: /dev/termination-log
+          name: quarkus
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          env:
+            - name: TEST
+              value: TEST
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          securityContext:
+            privileged: false
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: prometheus
+              containerPort: 9779
+              protocol: TCP
+            - name: jolokia
+              containerPort: 8778
+              protocol: TCP
+          imagePullPolicy: IfNotPresent
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: 8080
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePolicy: File
+          volumeMounts:
+           - name: {{ .Values.name }}-application-properties
+             mountPath: /deployments/config
+      volumes:
+        - name: {{ .Values.name }}-application-properties
+          configMap:
+            name: {{ .Values.name }}-application-properties
